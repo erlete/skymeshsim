@@ -23,5 +23,17 @@ dev = [
     "mypy==1.13.0",
     "pycodestyle==2.12.1",
     "pydocstyle==6.3.0",
+    "pylint==3.3.1",
     "pytest==8.3.3",
 ]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_untyped_calls = true
+files = ["src"]
+follow_imports = "silent"
+ignore_missing_imports = true
+show_error_codes = true
+
+[tool.pylint]
+max-line-length = 80
