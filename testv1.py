@@ -1,7 +1,5 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import rasterio
-from rasterio.plot import show
 
 # Load the dataset
 file_path = "esp_pd_2020_1km.tif"  # Replace with your GeoTIFF file path

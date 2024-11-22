@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
 from rasterio.mask import mask
-from rasterio.plot import show
 from shapely.geometry import mapping
 
 # Load Spain shapefile
