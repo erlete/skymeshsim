@@ -1,8 +1,15 @@
+"""Data system module.
+
+Author:
+    Paulo Sanchez (@erlete)
+"""
+
+
 import asyncio
 import json
+from typing import Any
 
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 
 from .logger import Logger
 from .messages import ClientIdentificationMessage
@@ -14,9 +21,9 @@ class DataSystem(_BaseNetworkComponent):
 
     def __init__(self, host: str, port: int):
         super().__init__(host, port)
-        self.drone_data = {}
+        self.drone_data: dict[str, Any] = {}
 
-        self._logger = Logger(0, "[DataSystem]")
+        self._logger = Logger(1, "[DataSystem]")
 
     async def run(self) -> None:
         """Connect to the server and log messages."""
@@ -63,13 +70,13 @@ class DataSystem(_BaseNetworkComponent):
 
     async def start_plotting(self) -> None:
         """Start the plotting loop."""
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
         sc = ax.scatter([], [])
         ax.set_title("Drone Positions")
         ax.set_xlabel("Longitude")
         ax.set_ylabel("Latitude")
 
-        def update_plot():
+        def update_plot() -> None:
             x_data = [data["location"]["x"]
                       for data in self.drone_data.values()]
             y_data = [data["location"]["y"]

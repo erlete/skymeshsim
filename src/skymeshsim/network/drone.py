@@ -1,7 +1,16 @@
+"""Drone module.
+
+Author:
+    Paulo Sanchez (@erlete)
+"""
+
+
 import asyncio
 import json
 import random
 from typing import Optional, Tuple
+
+from skymeshsim.network.logger import Logger
 
 from .messages import (ClientIdentificationMessage, DroneStatusMessage,
                        LogMessage)
@@ -18,6 +27,8 @@ class IndependentComponent(_BaseNetworkComponent):
         self.time_tick = time_tick
         self.position = (0.0, 0.0)
         self.target: Optional[Tuple[float, float]] = None
+
+        self._logger = Logger(1, f"[Drone ({self.id})]")
 
     async def run(self) -> None:
         """Connect to the server and process commands."""
@@ -47,8 +58,15 @@ class IndependentComponent(_BaseNetworkComponent):
                     writer=writer
                 ).send()
 
-                if decoded_message.get("type") == "cmd" and decoded_message.get("command") == "moveto":
+                if (
+                    decoded_message.get("type") == "dcmd"
+                    and decoded_message.get("target") in (self.id, "all")
+                    and decoded_message.get("command") == "moveto"
+                ):
                     self.target = decoded_message.get("target")
+
+        except asyncio.CancelledError:
+            self._logger.log("Drone connection interrupted.", 2)
 
         finally:
             writer.close()

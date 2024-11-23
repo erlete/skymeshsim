@@ -1,3 +1,10 @@
+"""Socket server module.
+
+Author:
+    Paulo Sanchez (@erlete)
+"""
+
+
 import asyncio
 import json
 from typing import Dict
@@ -15,13 +22,19 @@ class SocketServer(_BaseNetworkComponent):
         self.clients: Dict[str, asyncio.StreamWriter] = {}
         self.message_queue: asyncio.Queue = asyncio.Queue()
 
-        self._logger = Logger(0, "[SocketServer]")
+        self._logger = Logger(1, "[SocketServer]")
 
-    async def handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    async def handle_client(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter
+    ) -> None:
         """Handle client connections and enqueue their messages."""
         try:
             # Identify client:
-            client_name = json.loads((await reader.readline()).decode())["component"].strip()
+            client_name = json.loads(
+                (await reader.readline()).decode()
+            )["component"].strip()
             self.clients[client_name] = writer
             self._logger.log(f"Client {client_name!s} connected.", 1)
 
@@ -41,8 +54,10 @@ class SocketServer(_BaseNetworkComponent):
                         2
                     )
                     continue
+
         except asyncio.CancelledError:
-            pass
+            self._logger.log("SocketServer connection interrupted.", 2)
+
         finally:
             self._logger.log(f"Client {client_name!s} disconnected.", 1)
             self.clients.pop(client_name, None)
@@ -50,21 +65,37 @@ class SocketServer(_BaseNetworkComponent):
             await writer.wait_closed()
 
     async def process_messages(self) -> None:
-        """Process messages from the queue and route them to appropriate clients."""
+        """Process messages and forward them to target clients."""
         while True:
             client_name, message = await self.message_queue.get()
             self._logger.log(f"Client {client_name!s} says {message}", 0)
 
             # DataSystem valid messages forwarding:
-            if message.get("type") in ("log", "dronestatus") and "DataSystem" in self.clients:
+            if (
+                message.get("type") in ("log", "dstat")
+                and "DataSystem" in self.clients
+            ):
                 await self.send_message("DataSystem", message)
 
-            # DroneCommand messages forwarding:
-            elif message.get("type") == "cmd":
+            # Drone commands handling:
+            elif message.get("type") == "dcmd":
                 # Forward commands to all drones
                 for client_name in self.clients:
                     if client_name.startswith("Drone"):
                         await self.send_message(client_name, message)
+
+            # Server commands handling:
+            elif message.get("type") == "scmd":
+                match message.get("command"):
+                    case "drones":
+                        self._logger.log(
+                            "Connected drones: "
+                            + ', '.join(
+                                key for key in self.clients
+                                if key.startswith('Drone')
+                            ),
+                            1
+                        )
 
     async def send_message(self, recipient: str, message: dict) -> None:
         """Send a message to a specific client."""
@@ -75,11 +106,18 @@ class SocketServer(_BaseNetworkComponent):
 
     async def run(self) -> None:
         """Start the server and listen for client connections."""
-        server = await asyncio.start_server(self.handle_client, self.host, self.port)
+        server = await asyncio.start_server(
+            self.handle_client,
+            self.host,
+            self.port
+        )
         self._logger.log(f"Server running on {self.host}:{self.port}", 1)
 
         async with server:
-            await asyncio.gather(server.serve_forever(), self.process_messages())
+            await asyncio.gather(
+                server.serve_forever(),
+                self.process_messages()
+            )
 
 
 if __name__ == "__main__":

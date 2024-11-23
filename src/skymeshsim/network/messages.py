@@ -16,11 +16,23 @@ class _BaseMessage:
     """Base class for all messages. Handles JSON encoding/decoding.
 
     Attributes:
+        TYPE (str | None): Type of the message (code identifier).
         writer (asyncio.StreamWriter): Writer object to send the message.
     """
 
+    TYPE: str | None = None
+
     def __init__(self, writer: asyncio.StreamWriter) -> None:
         self.writer = writer
+
+    @property
+    def type(self) -> str | None:
+        """Return message type.
+
+        Returns:
+            str | none: Message type.
+        """
+        return self.TYPE
 
     async def send(self) -> None:
         """Send the message to the server
@@ -35,6 +47,7 @@ class _BaseMessage:
         """Encode the message to JSON format."""
         data = self.__dict__.copy()
         data.pop('writer', None)
+        data['type'] = self.TYPE
         return json.dumps(data)
 
     @classmethod
@@ -63,6 +76,8 @@ class LogMessage(_BaseMessage):
         }
     """
 
+    TYPE = "log"
+
     def __init__(
         self,
         component: str,
@@ -70,36 +85,64 @@ class LogMessage(_BaseMessage):
         writer: asyncio.StreamWriter
     ) -> None:
         super().__init__(writer)
-        self.type = "log"
         self.component = component
         self.message = message
 
 
-class CommandMessage(_BaseMessage):
-    """Command message format.
+class DroneCommandMessage(_BaseMessage):
+    """Drone command message format.
 
     Attributes:
-        command (str): Command to execute
-        target (Any): Command target
+        target (str): Target drone to send the command.
+        command (str): Command to execute.
+        args (Any): Command arguments.
 
     Example:
         {
-            'type': 'cmd',
+            'type': 'dcmd',
+            'target': 'Drone-1',
             'command': 'moveto',
-            'target': (10.0, 20.0)
+            'args': [10.0, 20.0]
         }
     """
+
+    TYPE = "dcmd"
+
+    def __init__(
+        self,
+        target: str,
+        command: str,
+        args: Any,
+        writer: asyncio.StreamWriter
+    ) -> None:
+        super().__init__(writer)
+        self.target = target
+        self.command = command
+        self.args = args
+
+
+class ServerCommandMessage(_BaseMessage):
+    """Server command message format.
+
+    Attributes:
+        command (str): Command to execute.
+
+    Example:
+        {
+            'type': 'scmd',
+            'command': 'drones',
+        }
+    """
+
+    TYPE = "scmd"
 
     def __init__(
         self,
         command: str,
-        target: Any,
         writer: asyncio.StreamWriter
     ) -> None:
         super().__init__(writer)
-        self.type = "cmd"
         self.command = command
-        self.target = target
 
 
 class ClientIdentificationMessage(_BaseMessage):
@@ -110,10 +153,12 @@ class ClientIdentificationMessage(_BaseMessage):
 
     Example:
         {
-            'type': 'clientidentification',
+            'type': 'cid',
             'component': 'Drone-1'
         }
     """
+
+    TYPE = "cid"
 
     def __init__(
         self,
@@ -121,7 +166,6 @@ class ClientIdentificationMessage(_BaseMessage):
         writer: asyncio.StreamWriter
     ) -> None:
         super().__init__(writer)
-        self.type = "clientidentification"
         self.component = component
 
 
@@ -137,7 +181,7 @@ class DroneStatusMessage(_BaseMessage):
 
     Example:
         {
-            'type': 'dronestatus',
+            'type': 'dstat',
             'component': 'Drone-1',
             'location': {'longitude': 10.0, 'latitude': 20.0, 'elevation': 100.0},
             'orientation': {'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0},
@@ -145,6 +189,8 @@ class DroneStatusMessage(_BaseMessage):
             'autonomy': 120.0
         }
     """
+
+    TYPE = "dstat"
 
     def __init__(
         self,
@@ -156,7 +202,6 @@ class DroneStatusMessage(_BaseMessage):
         writer: asyncio.StreamWriter
     ) -> None:
         super().__init__(writer)
-        self.type = "dronestatus"
         self.component = component
         self.location = location
         self.orientation = orientation

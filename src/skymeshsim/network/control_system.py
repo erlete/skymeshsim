@@ -11,7 +11,8 @@ Author:
 import asyncio
 
 from .logger import Logger
-from .messages import ClientIdentificationMessage, CommandMessage
+from .messages import (ClientIdentificationMessage, DroneCommandMessage,
+                       ServerCommandMessage)
 from .network_component import _BaseNetworkComponent, _NetworkInputReader
 
 COMMANDS = {
@@ -71,19 +72,30 @@ class ControlSystem(_BaseNetworkComponent, _NetworkInputReader):
                     continue
 
                 # External operation commands:
-                if command.lower().startswith("moveto"):
-                    await CommandMessage(
+                if command.startswith("moveto"):
+                    await DroneCommandMessage(
+                        target="all",
                         command="moveto",
-                        target=tuple(
+                        args=tuple(
                             map(float, command.split("moveto ")[1].split(","))
                         ),
                         writer=writer
                     ).send()
+                elif command == "drones":
+                    await ServerCommandMessage(
+                        command="drones",
+                        writer=writer
+                    ).send()
+
+                    self._logger.log(
+                        "Requesting drone list. Check server log for result.",
+                        1
+                    )
                 else:
                     self._logger.log(
-                        "Unknown command format. Type 'help' for a list of "
+                        "Unknown command. Type 'help' for a list of "
                         + "available commands.",
-                        2
+                        3
                     )
 
         except asyncio.CancelledError:
