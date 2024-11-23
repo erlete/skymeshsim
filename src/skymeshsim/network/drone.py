@@ -3,8 +3,8 @@ import json
 import random
 from typing import Optional, Tuple
 
-from .messages import (ClientIdentificationMessage, ConnectionChangeMessage,
-                       DroneStatusMessage, LogMessage)
+from .messages import (ClientIdentificationMessage, DroneStatusMessage,
+                       LogMessage)
 from .network_component import _BaseNetworkComponent
 
 

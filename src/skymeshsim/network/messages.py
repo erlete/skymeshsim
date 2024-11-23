@@ -75,37 +75,6 @@ class LogMessage(_BaseMessage):
         self.message = message
 
 
-class DataMessage(_BaseMessage):
-    """Data message format.
-
-    Attributes:
-        component (str): Component that generated the data.
-        subtype (str): Data subtype.
-        value (Any): Data value.
-
-    Example:
-        {
-            'type': 'data',
-            'component': 'Drone-1',
-            'subtype': 'position',
-            'value': {'x': 10.0, 'y': 20.0}
-        }
-    """
-
-    def __init__(
-        self,
-        component: str,
-        subtype: str,
-        value: Any,
-        writer: asyncio.StreamWriter
-    ) -> None:
-        super().__init__(writer)
-        self.type = "data"
-        self.component = component
-        self.subtype = subtype
-        self.value = value
-
-
 class CommandMessage(_BaseMessage):
     """Command message format.
 
@@ -131,33 +100,6 @@ class CommandMessage(_BaseMessage):
         self.type = "cmd"
         self.command = command
         self.target = target
-
-
-class ConnectionChangeMessage(_BaseMessage):
-    """Connection change message format.
-
-    Attributes:
-        component (str): Component that changed connection status.
-        status (str): Connection status, either "connected" or "disconnected".
-
-    Example:
-        {
-            'type': 'connectionchange',
-            'component': 'Drone-1',
-            'status': 'connected'
-        }
-    """
-
-    def __init__(
-        self,
-        component: str,
-        status: str,
-        writer: asyncio.StreamWriter
-    ) -> None:
-        super().__init__(writer)
-        self.type = "connectionchange"
-        self.component = component
-        self.status = status
 
 
 class ClientIdentificationMessage(_BaseMessage):
