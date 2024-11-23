@@ -1,6 +1,6 @@
 import asyncio
 
-from .messages import CommandMessage
+from .messages import ClientIdentificationMessage, CommandMessage
 from .network_component import _BaseNetworkComponent
 
 
@@ -18,8 +18,10 @@ class ControlSystem(_BaseNetworkComponent):
     async def run(self) -> None:
         """Connect to the server and send user commands."""
         _, writer = await asyncio.open_connection(self.host, self.port)
-        writer.write(b"ControlSystem\n")
-        await writer.drain()
+        await ClientIdentificationMessage(
+            component="ControlSystem",
+            writer=writer
+        ).send()
 
         print("ControlSystem connected. Type commands (e.g., 'moveto 10, 20').")
         try:
