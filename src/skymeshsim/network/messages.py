@@ -131,3 +131,92 @@ class CommandMessage(_BaseMessage):
         self.type = "cmd"
         self.command = command
         self.target = target
+
+
+class ConnectionChangeMessage(_BaseMessage):
+    """Connection change message format.
+
+    Attributes:
+        component (str): Component that changed connection status.
+        status (str): Connection status, either "connected" or "disconnected".
+
+    Example:
+        {
+            'type': 'connectionchange',
+            'component': 'Drone-1',
+            'status': 'connected'
+        }
+    """
+
+    def __init__(
+        self,
+        component: str,
+        status: str,
+        writer: asyncio.StreamWriter
+    ) -> None:
+        super().__init__(writer)
+        self.type = "connectionchange"
+        self.component = component
+        self.status = status
+
+
+class ClientIdentificationMessage(_BaseMessage):
+    """Client identification message format.
+
+    Attributes:
+        component (str): Component name.
+
+    Example:
+        {
+            'type': 'clientidentification',
+            'component': 'Drone-1'
+        }
+    """
+
+    def __init__(
+        self,
+        component: str,
+        writer: asyncio.StreamWriter
+    ) -> None:
+        super().__init__(writer)
+        self.type = "clientidentification"
+        self.component = component
+
+
+class DroneStatusMessage(_BaseMessage):
+    """Drone status message format.
+
+    Attributes:
+        component (str): Component that generated the status.
+        location (dict): Location with longitude, latitude, and elevation.
+        orientation (dict): Orientation with yaw, pitch, and roll.
+        speed (float): Speed of the drone.
+        autonomy (float): Autonomy of the drone.
+
+    Example:
+        {
+            'type': 'dronestatus',
+            'component': 'Drone-1',
+            'location': {'longitude': 10.0, 'latitude': 20.0, 'elevation': 100.0},
+            'orientation': {'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0},
+            'speed': 5.0,
+            'autonomy': 120.0
+        }
+    """
+
+    def __init__(
+        self,
+        component: str,
+        location: dict,
+        orientation: dict,
+        speed: float,
+        autonomy: float,
+        writer: asyncio.StreamWriter
+    ) -> None:
+        super().__init__(writer)
+        self.type = "dronestatus"
+        self.component = component
+        self.location = location
+        self.orientation = orientation
+        self.speed = speed
+        self.autonomy = autonomy
