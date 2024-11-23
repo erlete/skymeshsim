@@ -1,8 +1,10 @@
 import asyncio
 import json
+import random
 from typing import Optional, Tuple
 
-from .messages import LogMessage
+from .messages import (ClientIdentificationMessage, ConnectionChangeMessage,
+                       DroneStatusMessage, LogMessage)
 from .network_component import _BaseNetworkComponent
 
 
@@ -20,10 +22,15 @@ class IndependentComponent(_BaseNetworkComponent):
     async def run(self) -> None:
         """Connect to the server and process commands."""
         reader, writer = await asyncio.open_connection(self.host, self.port)
-        writer.write(f"Drone-{self.id}\n".encode())
-        await writer.drain()
+
+        await ClientIdentificationMessage(
+            component=f"Drone-{self.id}",
+            writer=writer
+        ).send()
 
         asyncio.create_task(self.move(writer))
+
+        print("connected")
 
         try:
             while True:
@@ -31,8 +38,8 @@ class IndependentComponent(_BaseNetworkComponent):
 
                 if not message:
                     break
-                decoded_message = json.loads(
-                    message.decode().strip())  # Decode JSON message
+
+                decoded_message = json.loads(message.decode().strip())
 
                 await LogMessage(
                     component=f"Drone-{self.id}",
@@ -42,19 +49,32 @@ class IndependentComponent(_BaseNetworkComponent):
 
                 if decoded_message.get("type") == "cmd" and decoded_message.get("command") == "moveto":
                     self.target = decoded_message.get("target")
+
         finally:
             writer.close()
             await writer.wait_closed()
 
-    def parse_target(self, message: dict) -> Tuple[float, float]:
-        """Parse target coordinates from the command."""
-        x, y = message.get("target", (0.0, 0.0))
-        return x, y
-
     async def move(self, writer: asyncio.StreamWriter) -> None:
         """Simulate movement toward the target."""
         while True:
-            await writer.drain()
+
+            await DroneStatusMessage(
+                component=f"Drone-{self.id}",
+                location={
+                    "x": self.position[0],
+                    "y": self.position[1],
+                    "z": 0.0
+                },
+                orientation={
+                    "roll": 0.0,
+                    "pitch": 0.0,
+                    "yaw": 0.0
+                },
+                speed=0.0,
+                autonomy=100,
+                writer=writer
+            ).send()
+
             if self.target:
                 tx, ty = self.target
                 x, y = self.position
@@ -77,13 +97,26 @@ class IndependentComponent(_BaseNetworkComponent):
                         y + step * dy / distance
                     )
 
+                    # Add random variation to the position
+                    variation_x = (random.random() - 0.5) * 0.1
+                    variation_y = (random.random() - 0.5) * 0.1
+                    self.position = (
+                        self.position[0] + variation_x,
+                        self.position[1] + variation_y
+                    )
+
             await asyncio.sleep(self.time_tick)
 
 
 if __name__ == "__main__":
+    import sys
+
+    drone_id = sys.argv[1]
     drone = IndependentComponent(
-        id_="1", host="127.0.0.1", port=8888, time_tick=0.1)
-    drone2 = IndependentComponent(
-        id_="2", host="127.0.0.1", port=8888, time_tick=0.1)
+        id_="1" if drone_id is None else drone_id,
+        host="127.0.0.1",
+        port=8888,
+        time_tick=0.1
+    )
+
     asyncio.run(drone.run())
-    asyncio.run(drone2.run())
