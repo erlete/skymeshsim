@@ -183,7 +183,11 @@ class DroneStatusMessage(_BaseMessage):
         {
             'type': 'dstat',
             'component': 'Drone-1',
-            'location': {'longitude': 10.0, 'latitude': 20.0, 'elevation': 100.0},
+            'location': {
+                'longitude': 10.0,
+                'latitude': 20.0,
+                'elevation': 100.0
+            },
             'orientation': {'yaw': 0.0, 'pitch': 0.0, 'roll': 0.0},
             'speed': 5.0,
             'autonomy': 120.0
