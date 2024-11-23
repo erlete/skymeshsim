@@ -29,12 +29,6 @@ class Logger:
             level_name = self.LEVELS.get(level, 'LOG')
             color = self.COLORS.get(level_name, Fore.WHITE)
             timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = f"{Style.DIM}({timestamp}){Style.NORMAL}"
             print(
-                f"{color}{timestamp} - {self.prefix} [{level_name}] {message}{Style.RESET_ALL}")
-
-# Example usage:
-# logger = Logger(1, '[MyApp]')
-# logger.log('This is an info message', 1)
-# logger.log('This is a debug message', 0)
-# logger.log('This is a warning message', 2)
-# logger.log('This is an error message', 3)
+                f"{color}{timestamp}{color} {self.prefix} [{level_name}] {message}{Style.RESET_ALL}")
