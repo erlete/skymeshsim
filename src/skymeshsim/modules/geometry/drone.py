@@ -98,15 +98,6 @@ class Drone:
 
         self._rotation = value
 
-    def plot(self, ax) -> None:
-        """Plot drone.
-
-        Args:
-            ax (Axes3D): ax to plot drone on.
-        """
-        print("Warning: Drone.plot() has not been implemented yet.")
-        return None
-
     def __repr__(self) -> str:
         """Get short drone representation.
 
