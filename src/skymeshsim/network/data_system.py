@@ -7,9 +7,16 @@ Author:
 
 import asyncio
 import json
+import os
 from typing import Any
 
+import geopandas as gpd
 import matplotlib.pyplot as plt
+import numpy as np
+import rasterio
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+from rasterio.mask import mask
+from shapely.geometry import mapping
 
 from .logger import Logger
 from .messages import ClientIdentificationMessage
@@ -69,32 +76,100 @@ class DataSystem(_BaseNetworkComponent):
         }
 
     async def start_plotting(self) -> None:
-        """Start the plotting loop with two subplots: one for drone positions and one for speed."""
-        # Create a figure with two subplots: one for drone positions and one for speed
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+        """Start the plotting loop with terrain and population density, and update drone positions dynamically."""
 
-        # Scatter plot for drone positions
-        sc = ax1.scatter([], [])
-        ax1.set_title("Drone Positions")
-        ax1.set_xlabel("Longitude")
-        ax1.set_ylabel("Latitude")
+        # Load Spain shapefile (for boundaries)
+        spain_shapefile = gpd.read_file(os.path.join(
+            os.path.dirname(__file__),
+            "data",
+            "ne_110m_admin_0_countries.shp"
+        ))
+        spain = spain_shapefile[spain_shapefile["ADMIN"] == "Spain"]
+        spain = spain.to_crs("EPSG:4326")  # Ensure matching CRS for the data
 
-        # Bar plot for drone speeds
-        bar_width = 0.35
-        drone_ids = []  # List to store drone IDs
-        speed_bars = ax2.bar([], [], width=bar_width)
-        ax2.set_title("Drone Speeds")
-        ax2.set_xlabel("Drone ID")
-        ax2.set_ylabel("Speed (m/s)")
+        # Load the raster data for population density
+        file_path = os.path.join(
+            os.path.dirname(__file__),
+            "data",
+            "esp_pd_2020_1km.tif"
+        )
+        with rasterio.open(file_path) as dataset:
+            out_image, out_transform = mask(
+                dataset, [mapping(spain.geometry.iloc[0])], crop=True)
+            out_meta = dataset.meta
 
-        # Function to update both the position and speed plots
+        # Clamp the raster values to [0, inf)
+        out_image = np.clip(out_image, 0, None)
+
+        # Custom colormap (transparent to black with opacity)
+        colors = [(0, (1, 1, 1, 0)), (1, (242 / 255, 107 / 255, 10 / 255, 1))]
+        cmap_name = 'transparent_black'
+        cmap = LinearSegmentedColormap.from_list(cmap_name, colors, N=100)
+
+        # Plot the terrain and population density
+        with rasterio.open(os.path.join(
+            os.path.dirname(__file__),
+            "data",
+            "reprojected_terrain_view.tiff"
+        )) as terrain_dataset:
+            terrain_data = terrain_dataset.read([1, 2, 3])  # RGB bands
+            terrain_transform = terrain_dataset.transform
+
+        # Normalize reflectance to [0, 1]
+        terrain_data = np.clip(terrain_data, 0, 10000) / 10000
+        terrain_data = (terrain_data ** (1 / 1.5))  # Apply gamma correction
+        # Convert to 0-255 range for display
+        terrain_data = (terrain_data * 255).astype(np.uint8)
+
+        # Set up the plot
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+
+        # Plot the terrain data (static)
+        ax.imshow(np.transpose(terrain_data, (1, 2, 0)), extent=[
+            terrain_transform[2],
+            terrain_transform[2] + terrain_transform[0] *
+            terrain_data.shape[2],
+            terrain_transform[5] + terrain_transform[4] *
+            terrain_data.shape[1],
+            terrain_transform[5]
+        ], alpha=1, zorder=3)
+
+        # Plot population density (static)
+        pop_density_data = np.squeeze(out_image)  # Remove extra dimensions
+        ax.imshow(pop_density_data, cmap=cmap, extent=[
+            out_transform[2],
+            out_transform[2] + out_transform[0] * pop_density_data.shape[1],
+            out_transform[5] + out_transform[4] * pop_density_data.shape[0],
+            out_transform[5]
+        ], alpha=1, norm=Normalize(vmin=pop_density_data.min(), vmax=pop_density_data.max()), zorder=4)
+
+        # Plot the boundary of Spain (static)
+        spain.boundary.plot(ax=ax, edgecolor="black",
+                            facecolor=(0, 0, 0, .1), linewidth=1)
+
+        # Add a colorbar for population density
+        cbar = plt.colorbar(ax.imshow(pop_density_data, cmap=cmap),
+                            ax=ax, orientation="vertical", fraction=0.036, pad=0.04)
+        cbar.set_label("Population Density")
+
+        # Add title and labels
+        ax.set_title(
+            "Drone Positions on Terrain and Population Density", fontsize=14)
+        ax.set_xlabel("Longitude")
+        ax.set_ylabel("Latitude")
+
+        # Create a scatter plot for the drone positions (this will be updated dynamically)
+        sc = ax.scatter([], [], c='red', label='Drones', s=50, zorder=5)
+
+        # Function to update both the position plot
         def update_plot() -> None:
             x_data = [data["location"]["x"]
                       for data in self.drone_data.values()]
             y_data = [data["location"]["y"]
                       for data in self.drone_data.values()]
             speeds = [data["speed"] for data in self.drone_data.values()]
-            self._logger.log(f"Plotting positions: {x_data}, {y_data}", 0)
+            self._logger.log(
+                f"Plotting drone positions: {x_data}, {y_data}", 0)
             self._logger.log(f"Plotting speeds: {speeds}", 0)
 
             if x_data and y_data:
@@ -102,35 +177,24 @@ class DataSystem(_BaseNetworkComponent):
                 sc.set_offsets(list(zip(x_data, y_data)))
 
                 # Dynamically adjust the plot limits for positions
-                margin = 1.0  # Add a margin to the bounds
-                x_min, x_max = min(x_data) - margin, max(x_data) + margin
-                y_min, y_max = min(y_data) - margin, max(y_data) + margin
+                hardcoded_center = (-0.4, 39.48)
+                margin = 0.1  # Add a margin to the bounds
+                x_min, x_max = hardcoded_center[0] - \
+                    margin, hardcoded_center[0] + margin
+                y_min, y_max = hardcoded_center[1] - \
+                    margin, hardcoded_center[1] + margin
 
-                ax1.set_xlim(x_min, x_max)
-                ax1.set_ylim(y_min, y_max)
+                ax.set_xlim(x_min, x_max)
+                ax.set_ylim(y_min, y_max)
 
-            if speeds:
-                # Update the bar plot for drone speeds
-                ax2.clear()  # Clear previous bars to avoid overlap
-                ax2.bar(drone_ids, speeds, width=bar_width)
-                # Adjust y-axis to fit speed data
-                ax2.set_ylim(0, max(speeds) + 1)
+                # ax.set_xlim(-0.5, -0.325)
+                # ax.set_ylim(39.40, 39.52)
 
-                # Re-add labels and title after clearing
-                ax2.set_title("Drone Speeds")
-                ax2.set_xlabel("Drone ID")
-                ax2.set_ylabel("Speed (m/s)")
-
-        # Plotting loop
+        # Plotting loop (dynamic updates)
         while True:
-            # Update drone IDs list for the bar plot
-            drone_ids = list(self.drone_data.keys())
-            update_plot()  # Update both plots
-            plt.pause(0.1)  # Non-blocking pause to refresh the plot
-            await asyncio.sleep(0.1)  # Async sleep for non-blocking behavior
-# Example usage:
-# data_system = DataSystem('localhost', 8888)
-# asyncio.run(data_system.run())
+            update_plot()  # Update the drone positions dynamically
+            plt.pause(0.01)  # Non-blocking pause to refresh the plot
+            await asyncio.sleep(0.01)  # Async sleep for non-blocking behavior
 
 
 if __name__ == "__main__":
