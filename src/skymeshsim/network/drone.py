@@ -41,8 +41,6 @@ class IndependentComponent(_BaseNetworkComponent):
 
         asyncio.create_task(self.move(writer))
 
-        print("connected")
-
         try:
             while True:
                 message = await reader.readline()
@@ -63,7 +61,7 @@ class IndependentComponent(_BaseNetworkComponent):
                     and decoded_message.get("target") in (self.id, "all")
                     and decoded_message.get("command") == "moveto"
                 ):
-                    self.target = decoded_message.get("target")
+                    self.target = decoded_message.get("args")
 
         except asyncio.CancelledError:
             self._logger.log("Drone connection interrupted.", 2)
@@ -88,8 +86,8 @@ class IndependentComponent(_BaseNetworkComponent):
                     "pitch": 0.0,
                     "yaw": 0.0
                 },
-                speed=0.0,
-                autonomy=100,
+                speed=random.random() * 10,
+                autonomy=100 - random.random() * 10,
                 writer=writer
             ).send()
 

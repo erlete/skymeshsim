@@ -49,7 +49,7 @@ class DataSystem(_BaseNetworkComponent):
                     # Decode and parse the JSON message
                     decoded_message = json.loads(message.decode().strip())
 
-                    if decoded_message["type"] == "dronestatus":
+                    if decoded_message["type"] == "dstat":
                         self._logger.log(f"Drone status: {decoded_message}", 0)
                         self.update_drone_data(decoded_message)
 
@@ -69,37 +69,65 @@ class DataSystem(_BaseNetworkComponent):
         }
 
     async def start_plotting(self) -> None:
-        """Start the plotting loop."""
-        _, ax = plt.subplots()
-        sc = ax.scatter([], [])
-        ax.set_title("Drone Positions")
-        ax.set_xlabel("Longitude")
-        ax.set_ylabel("Latitude")
+        """Start the plotting loop with two subplots: one for drone positions and one for speed."""
+        # Create a figure with two subplots: one for drone positions and one for speed
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
+        # Scatter plot for drone positions
+        sc = ax1.scatter([], [])
+        ax1.set_title("Drone Positions")
+        ax1.set_xlabel("Longitude")
+        ax1.set_ylabel("Latitude")
+
+        # Bar plot for drone speeds
+        bar_width = 0.35
+        drone_ids = []  # List to store drone IDs
+        speed_bars = ax2.bar([], [], width=bar_width)
+        ax2.set_title("Drone Speeds")
+        ax2.set_xlabel("Drone ID")
+        ax2.set_ylabel("Speed (m/s)")
+
+        # Function to update both the position and speed plots
         def update_plot() -> None:
             x_data = [data["location"]["x"]
                       for data in self.drone_data.values()]
             y_data = [data["location"]["y"]
                       for data in self.drone_data.values()]
-            self._logger.log(f"Plotting: {x_data}, {y_data}", 0)
+            speeds = [data["speed"] for data in self.drone_data.values()]
+            self._logger.log(f"Plotting positions: {x_data}, {y_data}", 0)
+            self._logger.log(f"Plotting speeds: {speeds}", 0)
 
             if x_data and y_data:
+                # Update the scatter plot for drone positions
                 sc.set_offsets(list(zip(x_data, y_data)))
 
-                # Dynamically adjust the plot limits
+                # Dynamically adjust the plot limits for positions
                 margin = 1.0  # Add a margin to the bounds
                 x_min, x_max = min(x_data) - margin, max(x_data) + margin
                 y_min, y_max = min(y_data) - margin, max(y_data) + margin
 
-                ax.set_xlim(x_min, x_max)
-                ax.set_ylim(y_min, y_max)
+                ax1.set_xlim(x_min, x_max)
+                ax1.set_ylim(y_min, y_max)
+
+            if speeds:
+                # Update the bar plot for drone speeds
+                ax2.clear()  # Clear previous bars to avoid overlap
+                ax2.bar(drone_ids, speeds, width=bar_width)
+                # Adjust y-axis to fit speed data
+                ax2.set_ylim(0, max(speeds) + 1)
+
+                # Re-add labels and title after clearing
+                ax2.set_title("Drone Speeds")
+                ax2.set_xlabel("Drone ID")
+                ax2.set_ylabel("Speed (m/s)")
 
         # Plotting loop
         while True:
-            update_plot()
+            # Update drone IDs list for the bar plot
+            drone_ids = list(self.drone_data.keys())
+            update_plot()  # Update both plots
             plt.pause(0.1)  # Non-blocking pause to refresh the plot
-            await asyncio.sleep(0.1)  # Async sleep for 1 second
-
+            await asyncio.sleep(0.1)  # Async sleep for non-blocking behavior
 # Example usage:
 # data_system = DataSystem('localhost', 8888)
 # asyncio.run(data_system.run())
