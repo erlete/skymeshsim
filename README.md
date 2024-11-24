@@ -18,3 +18,5 @@ https://www.worldpop.org/datacatalog/
 https://github.com/Open-EO/openeo-community-examples/tree/main/python
 
 https://github.com/AtsushiSakai/PythonRobotics/tree/master?tab=readme-ov-file#drone-3d-trajectory-following
+
+https://sentiwiki.copernicus.eu/web/s2-applications#S2-Applications-Emergency-Management
