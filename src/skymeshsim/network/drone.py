@@ -10,23 +10,27 @@ import json
 import random
 from typing import Optional, Tuple
 
-from skymeshsim.network.logger import Logger
-
+from .logger import Logger
 from .messages import (ClientIdentificationMessage, DroneStatusMessage,
                        LogMessage)
 from .network_component import _BaseNetworkComponent
+from .utils import geo_distance_to_m, predefined_route
 
 
 class IndependentComponent(_BaseNetworkComponent):
     """Simulates a drone moving toward a target."""
 
-    def __init__(self, id_: str, host: str, port: int, time_tick: float = 0.1):
+    def __init__(self, id_: str, host: str, port: int, time_tick: float = 0.1, start_position: Tuple[float, float] = (-0.4, 39.4628)) -> None:
         super().__init__(host, port)
 
         self.id = id_
         self.time_tick = time_tick
-        self.position = (0.0, 0.0)
+        self.position = start_position
         self.target: Optional[Tuple[float, float]] = None
+
+        self.waypoints = [(start_position[0] + x * 0.005, start_position[1] + y * 0.005)
+                          for x, y in zip(predefined_route["x"], predefined_route["y"])]
+        self.target = self.waypoints.pop(0)
 
         self._logger = Logger(1, f"[Drone ({self.id})]")
 
@@ -95,11 +99,15 @@ class IndependentComponent(_BaseNetworkComponent):
                 tx, ty = self.target
                 x, y = self.position
                 dx, dy = tx - x, ty - y
-                distance = (dx ** 2 + dy ** 2) ** 0.5
+                distance = geo_distance_to_m(x, y, tx, ty)
 
-                if distance < 0.1:
+                print(
+                    f"{tx = }, {ty = }, {x = }, {y = }, {dx = }, {dy = }, {distance = }")
+
+                if distance < 10:  # 10 m offset
                     self.position = self.target
-                    self.target = None
+                    self.target = self.waypoints.pop(
+                        0) if self.waypoints else None
 
                     await LogMessage(
                         component=f"Drone-{self.id}",
@@ -107,19 +115,13 @@ class IndependentComponent(_BaseNetworkComponent):
                         writer=writer
                     ).send()
                 else:
-                    step = self.time_tick * 1.0
+                    step = self.time_tick * 50
+                    print(f"{step = }")
                     self.position = (
                         x + step * dx / distance,
                         y + step * dy / distance
                     )
-
-                    # Add random variation to the position
-                    variation_x = (random.random() - 0.5) * 0.1
-                    variation_y = (random.random() - 0.5) * 0.1
-                    self.position = (
-                        self.position[0] + variation_x,
-                        self.position[1] + variation_y
-                    )
+                    print(f"{self.position = }")
 
             await asyncio.sleep(self.time_tick)
 
@@ -128,11 +130,15 @@ if __name__ == "__main__":
     import sys
 
     drone_id = sys.argv[1]
+    i = float(
+        drone_id) if drone_id and drone_id is not None and drone_id.isnumeric() else 0
+    print(i)
     drone = IndependentComponent(
         id_="1" if drone_id is None else drone_id,
         host="127.0.0.1",
         port=8888,
-        time_tick=0.1
+        time_tick=0.1,
+        start_position=(-0.4 - 0.005 * i, 39.4628 + 0.001 * i)
     )
 
     asyncio.run(drone.run())

@@ -7,6 +7,7 @@ Author:
 
 import asyncio
 import json
+import math
 import os
 from typing import Any
 
@@ -21,6 +22,7 @@ from shapely.geometry import mapping
 from .logger import Logger
 from .messages import ClientIdentificationMessage
 from .network_component import _BaseNetworkComponent
+from .utils import COVER_RADIUS, radius_to_lat_lon_units
 
 
 class DataSystem(_BaseNetworkComponent):
@@ -122,7 +124,7 @@ class DataSystem(_BaseNetworkComponent):
         terrain_data = (terrain_data * 255).astype(np.uint8)
 
         # Set up the plot
-        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+        fig, ax = plt.subplots(1, 1)
 
         # Plot the terrain data (static)
         ax.imshow(np.transpose(terrain_data, (1, 2, 0)), extent=[
@@ -159,9 +161,11 @@ class DataSystem(_BaseNetworkComponent):
         ax.set_ylabel("Latitude")
 
         # Create a scatter plot for the drone positions (this will be updated dynamically)
-        sc = ax.scatter([], [], c='red', label='Drones', s=50, zorder=5)
+        sc = ax.scatter([], [], color=(237/255, 104/255, 95/255),
+                        label='Drones', s=10, zorder=5)
 
         # Function to update both the position plot
+
         def update_plot() -> None:
             x_data = [data["location"]["x"]
                       for data in self.drone_data.values()]
@@ -177,18 +181,25 @@ class DataSystem(_BaseNetworkComponent):
                 sc.set_offsets(list(zip(x_data, y_data)))
 
                 # Dynamically adjust the plot limits for positions
-                hardcoded_center = (-0.4, 39.48)
-                margin = 0.1  # Add a margin to the bounds
-                x_min, x_max = hardcoded_center[0] - \
-                    margin, hardcoded_center[0] + margin
-                y_min, y_max = hardcoded_center[1] - \
-                    margin, hardcoded_center[1] + margin
-
-                ax.set_xlim(x_min, x_max)
-                ax.set_ylim(y_min, y_max)
 
                 # ax.set_xlim(-0.5, -0.325)
                 # ax.set_ylim(39.40, 39.52)
+                # Plot circles around each drone position
+                for x, y in zip(x_data, y_data):
+                    circle_rad = radius_to_lat_lon_units(x, y, COVER_RADIUS)
+                    circle = plt.Circle(
+                        (x, y), circle_rad[0], color=(245/255, 182/255, 93/255, 0.05), fill=True, linestyle='--', linewidth=0.2, zorder=4)
+                    ax.add_patch(circle)
+
+            hardcoded_center = (-0.4, 39.48)
+            margin = 0.05  # Add a margin to the bounds
+            x_min, x_max = hardcoded_center[0] - \
+                margin, hardcoded_center[0] + margin
+            y_min, y_max = hardcoded_center[1] - \
+                margin, hardcoded_center[1] + margin
+
+            ax.set_xlim(x_min, x_max)
+            ax.set_ylim(y_min, y_max)
 
         # Plotting loop (dynamic updates)
         while True:
