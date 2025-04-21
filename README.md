@@ -1,11 +1,16 @@
 # SkyMesh Simulator
 
 > [!IMPORTANT]
-> This repository was created as part of the 8th [Cassini Hackaton](https://www.cassini.eu/hackathons/), so it does not yet represent a fully functional application. The goal is to create a simulator that can be used to test the SkyMesh network in different scenarios.
+> This repository was created as part of the 8th [Cassini Hackaton](https://www.cassini.eu/hackathons/), so it does not yet represent a fully functional application. The goal is to create a simulator that can be used to test the SkyMesh network in different scenarios. Furthermore, the project is left as-is, discontinued, due to the very specific purpose it served.
 
 SkyMesh provides solution for network coverage in emergency situations. The solution is based on the use of drones to create a mesh network in the sky, providing internet access to the affected population. The project is part of the [Cassini Hackaton](https://www.cassini.eu/hackathons/), which aims to develop innovative solutions for the European Space Agency (ESA).
 
 The simulator makes use of multiple resources (see [resources section](#resources)) to create a realistic scenario. The main goal is to simulate the SkyMesh network in different scenarios, such as natural disasters, to evaluate the network coverage and performance. In a typical simulation, a server-based network is set up locally, initializing the server itself, a control system for events and command communication, a data system for traces, logs and general data transmission and processing, and 0 or more independent drone clients that can be controlled by the control system and managed by the server.
+
+```env
+# .env
+OPENWEATHER_API_KEY="<YOUR-OPENWEATHER-API-KEY>"
+```
 
 ## Server
 
@@ -41,7 +46,7 @@ There are more systems, such as the weather, population density, and terrain sys
 
 Regarding the usage of WorldPop resources, please refer to the following citation:
 
-```
+```txt
 WorldPop (www.worldpop.org - School of Geography and Environmental Science, University of Southampton; Department of Geography and Geosciences, University of Louisville; Departement de Geographie, Universite de Namur) and Center for International Earth Science Information Network (CIESIN), Columbia University (2018). Global High Resolution Population Denominators Project - Funded by The Bill and Melinda Gates Foundation (OPP1134076). https://dx.doi.org/10.5258/SOTON/WP00674
 ```
 
